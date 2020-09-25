@@ -1,13 +1,17 @@
 const apiKey = '8537e803-ad84-4dd4-9df2-472deca90df6';
 const apiHost = 'https://todo-api.coderslab.pl';
 const addValue = document.querySelector(".js-task-adding-form");
+const placeToInput = document.getElementById("mainInput");
 
 addValue.addEventListener("submit", async (event) => {
+    event.preventDefault();
     const title = addValue.querySelector("#title").value;
     const description = addValue.querySelector("#desc").value;
-    event.preventDefault();
-    await addTask(title, description)
-    await renderPage();
+    let addedTask = await addTask(title, description);
+    let data = addedTask.data;
+    data.operations = [];
+    const section = createOpenTaskSection(data);
+    placeToInput.appendChild(section);
     addValue.querySelector("#title").value="";
     addValue.querySelector("#desc").value="";
 })
@@ -36,25 +40,28 @@ function apiListTasksWithOperations(id) {
 
 function createOpenTaskSection(element) {
     const sectionExample = document.getElementById("opened");
-    const section = sectionExample.cloneNode(true);
+    let section = sectionExample.cloneNode(true);
+    section.id = "";
     const formAdd =section.querySelector("#operationAdd");
     formAdd.addEventListener("submit", async (event)=>{
         event.preventDefault();
         const desc = formAdd.querySelector("input").value;
-        await addOperationToTask(element.id,desc);
-        await renderPage();
+        let operation = await addOperationToTask(element.id,desc);
+        element.operations.push(operation.data)
+        section.parentElement.replaceChild(createOpenTaskSection(element),section)
     })
     const delBtn = section.querySelector(".btn.btn-outline-danger.btn-sm.ml-2")
     delBtn.addEventListener("click", async (event) => {
             event.preventDefault();
             await deleteTask(element.id);
-            await renderPage();
+            section.parentElement.removeChild(section);
     });
     const updBtn = section.querySelector(".btn.btn-dark.btn-sm")
     updBtn.addEventListener("click", async (event) => {
         event.preventDefault();
-        await updateStatus(element.title, element.description, element.id)
-        await renderPage();
+        let updateData = await updateStatus(element.title, element.description, element.id);
+        element.status = updateData.data.status;
+        section.parentElement.replaceChild(createClosedTaskSection(element), section);
     })
     const ul = section.querySelector("ul");
     ul.innerText = "";
@@ -75,20 +82,22 @@ function createOpenLi(el) {
     const btn15 = li.querySelector("#btn15");
     btn15.addEventListener("click",async (event)=>{
         const updatedTime=el.timeSpent+15;
-        await updateOperation(el.id,el.description,updatedTime);
-        await renderPage();
+        let updateTimeOperation = await updateOperation(el.id,el.description,updatedTime);
+        el.timeSpent = updateTimeOperation.data.timeSpent;
+        li.parentElement.replaceChild(createOpenLi(el),li);
     })
     const btn60 = li.querySelector("#btn60");
     btn60.addEventListener("click",async (event)=>{
         const updatedTime=el.timeSpent+60;
-        await updateOperation(el.id,el.description,updatedTime);
-        await renderPage();
+        let updateTimeOperation = await updateOperation(el.id,el.description,updatedTime);
+        el.timeSpent = updateTimeOperation.data.timeSpent;
+        li.parentElement.replaceChild(createOpenLi(el),li);
     })
     const btnDeleteOperation = li.querySelector("#btnDeleteOperation");
     btnDeleteOperation.addEventListener("click",async (event)=>{
         event.preventDefault();
         await deleteOperation(el.id);
-        await renderPage();
+        li.parentElement.removeChild(li);
     })
     li.querySelector("div>div").innerText = el.description
     let time = el.timeSpent;
@@ -101,12 +110,12 @@ function createOpenLi(el) {
 function createClosedTaskSection(element) {
     const sectionExample = document.getElementById("closed");
     const section = sectionExample.cloneNode(true);
+    section.id="";
     const delBtn = section.querySelector(".btn.btn-outline-danger.btn-sm.ml-2")
     delBtn.addEventListener("click", async (event) => {
         event.preventDefault();
         await deleteTask(element.id);
-        await renderPage();
-
+        section.parentElement.removeChild(section);
     });
     const ul = section.querySelector("ul");
     ul.innerText = "";
@@ -125,7 +134,6 @@ function createClosedTaskSection(element) {
 function createClosedLi(el) {
     const exampleLi = document.querySelector("#closed ul li");
     const li = exampleLi.cloneNode(true);
-    console.log(li);
     li.querySelector("div>div").innerText = el.description
     let time = el.timeSpent;
     let h = Math.floor(time / 60);
@@ -141,7 +149,6 @@ async function renderPage() {
         let op = (await apiListTasksWithOperations(el.id))
         el.operations = op.data;
     }))
-    const placeToInput = document.getElementById("mainInput");
     placeToInput.innerText = ""
     for (const el of dataSet) {
         if (el.status === "open") {
@@ -155,8 +162,6 @@ async function renderPage() {
 }
 
 function addTask(title, desc) {
-    console.log(title);
-    console.log(desc);
     return fetch(apiHost + '/api/tasks',
         {
             method: 'POST',
