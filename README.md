@@ -1,0 +1,1 @@
+Frontend JS vanilla application TimeTraker(TaskManager). Used REST API and fetch to build html. HTML and CSS not wrote by myself.
